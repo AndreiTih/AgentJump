@@ -84,9 +84,12 @@ struct GameState
 	int highScore = 0;
 	int score = 0;
 	int coinsCollected = 0;
+	// Represents the position the camera attempts to get at. Each frame the camera will get closer to the cameraTarget.
+	// This is so that the camera doesn't directly follow the player but kind of animates towards them.
+	Point2f cameraTarget = { 0,0 };
 	GameStateEnum state = STATE_INTRO;
 };
-GameState gameState;
+GameState g_gameState;
 
 
 void GeneratePlatformsCoinsAndSprings(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform);
@@ -117,11 +120,11 @@ void MainGameEntry(int, char* [])
 
 void StartGame(GameStateEnum initialGameState)
 {
-	gameState.state = initialGameState;
+	g_gameState.state = initialGameState;
 
 	// Reset score related variables
-	gameState.score = 0;
-	gameState.coinsCollected = 0;
+	g_gameState.score = 0;
+	g_gameState.coinsCollected = 0;
 	maxHeightReached = 0;
 
 	// Reset generation related variables
@@ -177,7 +180,7 @@ bool MainGameUpdate(float elapsedTime)
 
 void UpdateIntroTimer(float elapsedTime)
 {
-	if (gameState.state != STATE_INTRO)
+	if (g_gameState.state != STATE_INTRO)
 		return;
 
 	introTimeElapsed += elapsedTime;
@@ -187,7 +190,7 @@ void UpdateIntroTimer(float elapsedTime)
 
 	if (introTimeElapsed >= INTRO_TIME_IN_SECONDS)
 	{
-		gameState.state = STATE_PLAY;
+		g_gameState.state = STATE_PLAY;
 		Play::StartAudioLoop("music");
 		introTimeElapsed = 0;
 	}
@@ -197,7 +200,12 @@ void UpdateCamera()
 	if (isCameraFollowingPlayer)
 	{
 		GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
-		Play::cameraPos.y = player.pos.y - (DISPLAY_HEIGHT / 2);
+		// First update the cameraTarget.
+		g_gameState.cameraTarget.y = player.pos.y - (DISPLAY_HEIGHT / 2);
+
+		// Then interpolate the real camera towards the target camera
+		float deltaY = (g_gameState.cameraTarget.y - Play::cameraPos.y ) / 4;
+		Play::cameraPos.y += deltaY;
 	}
 }
 
@@ -215,29 +223,29 @@ void UpdateScore()
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
 	if (player.pos.y < maxHeightReached)
 	{
-		gameState.score = -player.pos.y + gameState.coinsCollected * coinValue;
+		g_gameState.score = -player.pos.y + g_gameState.coinsCollected * coinValue;
 		maxHeightReached = player.pos.y;
 	}
 
 	Play::drawSpace = Play::SCREEN;
-	Play::DrawFontText("64px", "Score: " + std::to_string(gameState.score) + " Highest Score: " + std::to_string(gameState.highScore),
+	Play::DrawFontText("64px", "Score: " + std::to_string(g_gameState.score) + " Highest Score: " + std::to_string(g_gameState.highScore),
 		{ 30 , 30 }, Play::LEFT);
 	Play::drawSpace = Play::WORLD;
 }
 
 void UpdateLoseScreen()
 {
-	if (gameState.state == STATE_DEAD)
+	if (g_gameState.state == STATE_DEAD)
 	{
-		if (gameState.score > gameState.highScore)
+		if (g_gameState.score > g_gameState.highScore)
 		{
-			gameState.highScore = gameState.score;
+			g_gameState.highScore = g_gameState.score;
 		}
 
 		isCameraFollowingPlayer = false;
 
 		Play::drawSpace = Play::SCREEN;
-		Play::DrawFontText("64px", "Highest Score: " + std::to_string(gameState.highScore),
+		Play::DrawFontText("64px", "Highest Score: " + std::to_string(g_gameState.highScore),
 			{ DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2 - 100 }, Play::CENTRE);
 
 		Play::DrawFontText("64px", "PRESS R TO RESTART",
@@ -255,13 +263,13 @@ void UpdateLoseScreen()
 
 void CheckDeathCondition()
 {
-	if (gameState.state == STATE_DEAD)
+	if (g_gameState.state == STATE_DEAD)
 		return;
 
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
 	if (player.velocity.y > 36)
 	{
-		gameState.state = STATE_DEAD;
+		g_gameState.state = STATE_DEAD;
 		Play::PlayAudio("die");
 	}
 }
@@ -402,9 +410,9 @@ void UpdateCoinsAndStars()
 			// But because of the way the score is updated it needs to be done this way. Since the 
 			// score is just a reflection of the lowest y coordinate reached, if we were to sum 
 			// coinValue to the score it would get overridden in the next call to UpdateScore().
-			gameState.coinsCollected += 1;
+			g_gameState.coinsCollected += 1;
 			// Forcing a score update since the score only updates when the player surpasses the lowest y coordinate.
-			gameState.score = -maxHeightReached + gameState.coinsCollected * coinValue;
+			g_gameState.score = -maxHeightReached + g_gameState.coinsCollected * coinValue;
 			Play::PlayAudio("collect");
 		}
 
@@ -427,12 +435,12 @@ void UpdateCoinsAndStars()
 void UpdatePlayer()
 {
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
-	if (gameState.state == STATE_PLAY)
+	if (g_gameState.state == STATE_PLAY)
 	{
 		HandlePlayerControls();
 		HandlePlayerCollision();
 	}
-	else if (gameState.state == STATE_DEAD)
+	else if (g_gameState.state == STATE_DEAD)
 	{
 		if (Play::IsVisible(player))
 		{
