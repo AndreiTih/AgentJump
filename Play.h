@@ -67,6 +67,11 @@ namespace Gdiplus
 #include <GdiPlus.h>
 #pragma warning(pop)
 
+// Likely not the best arhitectural decision to do this. I really just want the PowerUpType enum
+// in order to add a new instance variable of that type to the GameObject. I think ideally what 
+// I really want to do is create a new PowerUp class that extends GameObject and has that extra instance variable.
+#include "MainGame.h"
+
 // Macros for Assertion and Tracing
 void TracePrintf(const char* file, int line, const char* fmt, ...);
 void AssertFailMessage(const char* message, const char* file, long line );
@@ -1477,7 +1482,9 @@ private:
 #ifdef PLAY_USING_GAMEOBJECT_MANAGER
 
 #ifndef PLAY_ADD_GAMEOBJECT_MEMBERS
-#define PLAY_ADD_GAMEOBJECT_MEMBERS 
+// Most GameObjects won't use this so I believe it's bad code architecture to include it here,
+// I should ideally create a new class that extends GameObject and add the instance there
+#define PLAY_ADD_GAMEOBJECT_MEMBERS PowerUp::PowerUpType powerUpType;  
 #endif
 
 // PlayManager manges a map of GameObject structures

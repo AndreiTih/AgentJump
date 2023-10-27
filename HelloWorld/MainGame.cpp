@@ -8,6 +8,7 @@
 #define PLAY_IMPLEMENTATION
 #define PLAY_USING_GAMEOBJECT_MANAGER
 #include "Play.h"
+#include "MainGame.h"
 
 const int DISPLAY_WIDTH = 1280;
 const int DISPLAY_HEIGHT = 720;
@@ -31,9 +32,24 @@ const int GENERATE_MAX_X = DISPLAY_WIDTH - 100;
 #define INTRO_TIME_IN_SECONDS 4
 float introTimeElapsed = 0;
 
-float platformVelocityBoost = -18.0f;
-float springVelocityBoost = -25.0f;
+
+
+#define INITIAL_PLATFORM_VELOCITY_BOOST -18.0f
+#define INITIAL_SPRING_VELOCITY_BOOST -25.0f
+float platformVelocityBoost = INITIAL_PLATFORM_VELOCITY_BOOST;
+float springVelocityBoost = INITIAL_SPRING_VELOCITY_BOOST;
 int coinValue = 5000;
+
+// Power up data: I'm guessing in a real game you'd want to place this data 
+// somewhere in a text file maybe? And think up some generic system around that.
+
+// JUMP BOOST:
+// The jump applies a multiplier to both platformVelocityBoost and springVelocityBoost
+
+
+
+// How many platforms to generate at the start of the game
+#define INIT_NR_OF_PLATFORMS_GENERATED 100
 
 // Variables that determine the difficulty of the generated platforms. i.e how many vertical pixels apart are they from one another.
 #define INIT_GENERATE_PLAT_MIN_Y_DELTA 50
@@ -46,39 +62,41 @@ int generatePlatformsYRandomRange = INIT_GENERATE_PLAT_Y_RANDOM_RANGE;
 int generateCoinsMinYDelta = 1000;
 int generateCoinsYRandomRange = 500;
 
+
+
 // Highest height (lowest y coordinate) reached.
 int maxHeightReached = 0;
 
 int highestPlatformYPos = 0;
+int previousHighestPlatformYPos = 0;
 
 // y acceleration for the player GameObject.
 #define GRAVITY 0.2f
 
-enum GameObjectType
-{
-	TYPE_PLAYER = 0,
-	TYPE_COIN,
-	TYPE_STAR,
-	TYPE_PLATFORM,
-	TYPE_SPRING
-};
 
 
-struct PlayerStats
+
+
+
+
+struct Player
 {
 	float maxSpeed = 4.25f;
 	float inputAcceleration = 1.0f;
 
 	const Vector2D startingPos = { DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2 };
+	
+	// WARING: There's this unspoken coupling between this array and the PowerUpType enum. 
+	// It is assumed that the enum identifying the powerup also serves as an index into this array
+	// Take care when adding extra powerups to add them in the right order
+	PowerUp powerUps[NR_POWERUPS] =
+	{
+		{ PowerUp::PowerUpType::TYPE_JUMP_BOOST,0 , MAX_COUNT_POWER_UP_JUMP, POWER_UP_JUMP_COLLISION_RADIUS, SPAWN_CHANCE_POWER_UP_JUMP, "star","star"}
+	};
 };
-PlayerStats playerStats;
+Player g_player;
 
-enum GameStateEnum
-{
-	STATE_INTRO = 0,
-	STATE_PLAY,
-	STATE_DEAD,
-};
+
 struct GameState
 {
 	int highScore = 0;
@@ -92,20 +110,7 @@ struct GameState
 GameState g_gameState;
 
 
-void GeneratePlatformsCoinsAndSprings(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform);
-void GenerateCoins(int maxPosY, int minX, int maxX, int minY);
-void UpdatePlatformGeneration();
-void UpdateIntroTimer(float elapsedTime);
-void UpdateCamera();
-void UpdatePlayer();
-void HandlePlayerControls();
-void HandlePlayerCollision();
-void UpdatePlatformsAndSprings();
-void UpdateCoinsAndStars();
-void UpdateScore();
-void CheckDeathCondition();
-void UpdateLoseScreen();
-void StartGame(GameStateEnum initialGameState);
+
 
 // The entry point for a PlayBuffer program
 void MainGameEntry(int, char* [])
@@ -113,7 +118,8 @@ void MainGameEntry(int, char* [])
 	Play::CreateManager(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE);
 	Play::CentreAllSpriteOrigins();
 	Play::LoadBackground("Data\\Backgrounds\\background.png");
-	Play::CreateGameObject(TYPE_PLAYER, playerStats.startingPos, 50, "agent8_fall");
+	Play::CreateGameObject(TYPE_PLAYER, g_player.startingPos, 50, "agent8_fall");
+	Play::CreateGameObject(TYPE_GUI, { 0,0 }, 0, "star");
 
 	StartGame(STATE_INTRO);
 }
@@ -126,6 +132,8 @@ void StartGame(GameStateEnum initialGameState)
 	g_gameState.score = 0;
 	g_gameState.coinsCollected = 0;
 	maxHeightReached = 0;
+
+	ResetPlayerPowerUps();
 
 	// Reset generation related variables
 	generatePlatformsMinYDelta = INIT_GENERATE_PLAT_MIN_Y_DELTA;
@@ -145,10 +153,13 @@ void StartGame(GameStateEnum initialGameState)
 		Play::DestroyGameObject(springID);
 	}
 
-	GeneratePlatformsCoinsAndSprings(100, GENERATE_MIN_X, GENERATE_MAX_X, DISPLAY_HEIGHT + 100, true);
+	
+	GenerateNextChunk(INIT_NR_OF_PLATFORMS_GENERATED, GENERATE_MIN_X, GENERATE_MAX_X, DISPLAY_HEIGHT + 100, true);
+
+
 
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
-	player.pos = playerStats.startingPos;
+	player.pos = g_player.startingPos;
 	player.velocity = { 0,0 };
 	player.acceleration = { 0, GRAVITY };
 
@@ -157,6 +168,36 @@ void StartGame(GameStateEnum initialGameState)
 	if (initialGameState == STATE_PLAY)
 		Play::StartAudioLoop("music");
 }
+
+
+
+void ResetPlayerPowerUps()
+{
+	// Reset powerups themselves
+	for (int i = 0; i < NR_POWERUPS; i++)
+	{
+		g_player.powerUps[i].count = 0;
+	}
+	// Reset player stats affected by the powerup
+
+	// JUMP_BOOST POWERUP
+	platformVelocityBoost = INITIAL_PLATFORM_VELOCITY_BOOST;
+	springVelocityBoost   = INITIAL_SPRING_VELOCITY_BOOST;
+
+	// ETC...
+}
+
+// Update the player's stats according to the current powerups they have
+void ApplyPowerUps()
+{
+	// JUMP_BOOST POWERUP
+	PowerUp& jumpPowerUp = g_player.powerUps[PowerUp::PowerUpType::TYPE_JUMP_BOOST];
+	platformVelocityBoost = INITIAL_PLATFORM_VELOCITY_BOOST * jumpPowerUp.jump_multipliers[jumpPowerUp.count - 1];
+	springVelocityBoost   = INITIAL_SPRING_VELOCITY_BOOST   * jumpPowerUp.jump_multipliers[jumpPowerUp.count - 1];
+
+	// SOME OTHER POWERUP...
+}
+
 
 
 // Called by PlayBuffer every frame (60 times a second!)
@@ -168,14 +209,33 @@ bool MainGameUpdate(float elapsedTime)
 	UpdateCamera();
 	UpdatePlatformsAndSprings();
 	UpdateCoinsAndStars();
+	UpdatePowerUps();
 	UpdateIntroTimer(elapsedTime);
 	CheckDeathCondition();
 	UpdateLoseScreen();
 	UpdateScore();
+	UpdateGUI();
 	UpdatePlatformGeneration();
+
+	DrawAllObjects();
 
 	Play::PresentDrawingBuffer();
 	return Play::KeyDown(VK_ESCAPE);
+}
+
+void DrawAllObjects()
+{
+	// Add the rest here and refactor the drawings out of the other functions.
+	DrawAllObjectsOfType(TYPE_POWERUP);
+}
+
+
+void DrawAllObjectsOfType(GameObjectType type)
+{
+	for (int ob_id : Play::CollectGameObjectIDsByType(type))
+	{
+		Play::DrawObject(Play::GetGameObject(ob_id));
+	}
 }
 
 void UpdateIntroTimer(float elapsedTime)
@@ -214,7 +274,7 @@ void UpdatePlatformGeneration()
 {
 	if (Play::GetGameObjectByType(TYPE_PLAYER).pos.y - highestPlatformYPos < DISTANCE_UNTIL_GEN_PLAT)
 	{
-		GeneratePlatformsCoinsAndSprings(NR_PLAT_PER_GENERATION, GENERATE_MIN_X, GENERATE_MAX_X, highestPlatformYPos, false);
+		GenerateNextChunk(NR_PLAT_PER_GENERATION, GENERATE_MIN_X, GENERATE_MAX_X, highestPlatformYPos, false);
 	}
 }
 
@@ -226,10 +286,33 @@ void UpdateScore()
 		g_gameState.score = -player.pos.y + g_gameState.coinsCollected * coinValue;
 		maxHeightReached = player.pos.y;
 	}
+}
 
+void UpdateGUI()
+{
 	Play::drawSpace = Play::SCREEN;
+	// Score GUI:
 	Play::DrawFontText("64px", "Score: " + std::to_string(g_gameState.score) + " Highest Score: " + std::to_string(g_gameState.highScore),
 		{ 30 , 30 }, Play::LEFT);
+	
+	// Use this object to draw stuff on screen
+	GameObject& brush_obj = Play::GetGameObjectByType(TYPE_GUI);
+	
+	// Power ups GUI:
+
+	// Iterate through all power ups
+	int xOffset = 0;
+	for (int i = 0; i < NR_POWERUPS; i++)
+	{
+		PowerUp& powerUp = g_player.powerUps[i];
+		for (int j = 0; j < powerUp.count; j++)
+		{
+			xOffset -= 50;
+			brush_obj.spriteId = PlayGraphics::Instance().GetSpriteId(powerUp.gui_icon_sprite_name);
+			brush_obj.pos = { DISPLAY_WIDTH + xOffset, 50};
+			Play::DrawObject(brush_obj);
+		}
+	}
 	Play::drawSpace = Play::WORLD;
 }
 
@@ -282,14 +365,14 @@ const int generatePlatformsYRandomRangeMax = 150;
 // The height at which the platform generation will create the most difficult platforms
 const float HIGHEST_DIFFICULTY_HEIGHT = -50000;
 
-void GeneratePlatformsCoinsAndSprings(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform)
+void GeneratePlatformsAndSprings(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform)
 {
 	int platY = minY;
 
 	// Generate initial platform below the player
 	if (generateInitialPlatform)
 	{
-		Play::CreateGameObject(TYPE_PLATFORM, { playerStats.startingPos.x, DISPLAY_HEIGHT + 100 }, 40, "spanner");
+		Play::CreateGameObject(TYPE_PLATFORM, { g_player.startingPos.x, DISPLAY_HEIGHT + 100 }, 40, "spanner");
 		nrPlatforms = nrPlatforms - 1;
 	}
 
@@ -316,8 +399,7 @@ void GeneratePlatformsCoinsAndSprings(int nrPlatforms, int minX, int maxX, int m
 		}
 
 	}
-	GenerateCoins(highestPlatformYPos, platY, minX, maxX);
-
+	previousHighestPlatformYPos = highestPlatformYPos;
 	highestPlatformYPos = platY;
 }
 
@@ -345,6 +427,85 @@ void GenerateCoins(int minY, int maxY, int minX, int maxX)
 				break;
 			}
 		}
+	}
+}
+
+// Generates everything that is generatable: Platforms and springs, coins, powerups
+// The 'chunk size' of what is generated is determined by the nr of platforms in the generation.
+void GenerateNextChunk(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform)
+{
+	// TODO: Potential refactor. All 3 of these functions do very similar things.
+	// Maybe abstract these into one generic function.
+	GeneratePlatformsAndSprings(nrPlatforms, minX, maxX, minY, generateInitialPlatform);
+	GenerateCoins(previousHighestPlatformYPos, highestPlatformYPos, minX, maxX);	
+	//TODO: Change the powerup sprite to something appropriate
+	//Generate the JUMP BOOST powerup:
+	GeneratePowerUp(previousHighestPlatformYPos, highestPlatformYPos, minX, maxX, g_player.powerUps[PowerUp::PowerUpType::TYPE_JUMP_BOOST]);
+}
+
+void GeneratePowerUp(int minY, int maxY, int minX, int maxX, PowerUp& powerUp)
+{
+
+	int powerUpY = minY;
+	while (powerUpY > maxY)
+	{
+		int powerUpX = rand() % (maxX - minX) + minX;
+		int deltaY = rand() % powerUp.generatePowerUpYRandomRange + powerUp.generatePowerUpMinYDelta;
+		powerUpY = powerUpY - deltaY;
+
+		int powerUpID;
+		if (rand() % 100 < g_player.powerUps[PowerUp::PowerUpType::TYPE_JUMP_BOOST].spawn_chance * 100)
+		{
+			powerUpID = Play::CreateGameObject(TYPE_POWERUP, { powerUpX, powerUpY }, powerUp.collision_radius, powerUp.world_sprite_name);
+		}
+		else
+		{
+			continue;
+		}
+		
+		GameObject& powerUpObj = Play::GetGameObject(powerUpID);
+		powerUpObj.powerUpType = powerUp.type;
+		
+		//////////////////// Remove the power up if it's been spawned on top of something else /////////////////////////
+		//(TODO: If you detect that it would be spawned on top of something else, maybe make an algorithm to check around for good places to spawn it)
+		// Remove it if it's inside a platform
+		bool isDestroyed = false;
+		for (int platID : Play::CollectGameObjectIDsByType(TYPE_PLATFORM))
+		{
+			if (Play::IsColliding(Play::GetGameObject(platID), powerUpObj))
+			{
+				Play::DestroyGameObject(powerUpID);
+				isDestroyed = true;
+				break;
+			}
+		}
+		if (isDestroyed)
+			continue;
+		// Remove it if it's inside a coin
+		for (int coinID : Play::CollectGameObjectIDsByType(TYPE_COIN))
+		{
+			if (Play::IsColliding(Play::GetGameObject(coinID), powerUpObj))
+			{
+				Play::DestroyGameObject(powerUpID);
+				isDestroyed = true;
+				break;
+			}
+		}
+		if (isDestroyed)
+			continue;
+		// Remove it if it's inside another powerup
+		for (int otherPowerUpID : Play::CollectGameObjectIDsByType(TYPE_POWERUP))
+		{
+			if (otherPowerUpID == powerUpID)
+				continue;
+			if (Play::IsColliding(Play::GetGameObject(otherPowerUpID), powerUpObj))
+			{
+				Play::DestroyGameObject(powerUpID);
+				isDestroyed = true;
+				break;
+			}
+		}
+		
 	}
 }
 
@@ -432,6 +593,31 @@ void UpdateCoinsAndStars()
 	}
 }
 
+
+void UpdatePowerUps()
+{
+	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
+	for (int powerUpID : Play::CollectGameObjectIDsByType(TYPE_POWERUP))
+	{
+		GameObject& powerUpObj = Play::GetGameObject(powerUpID);
+		// Only apply collision logic if you can pick up the powerUp
+		if (g_player.powerUps[powerUpObj.powerUpType].count >= g_player.powerUps[powerUpObj.powerUpType].max_count)
+			continue;
+		
+		bool hasCollided = false;
+		if (Play::IsColliding(player, powerUpObj))
+		{
+			hasCollided = true;
+
+			g_player.powerUps[powerUpObj.powerUpType].count++;
+			Play::PlayAudio("collect");
+			ApplyPowerUps();
+		}
+		if (hasCollided || ((powerUpObj.pos.y - player.pos.y) > PLAT_DESTROY_HEIGHT))
+			Play::DestroyGameObject(powerUpID);
+	}
+}
+
 void UpdatePlayer()
 {
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
@@ -456,11 +642,11 @@ void HandlePlayerControls()
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
 	if (Play::KeyDown(VK_LEFT))
 	{
-		player.acceleration = { -playerStats.inputAcceleration , player.acceleration.y };
+		player.acceleration = { -g_player.inputAcceleration , player.acceleration.y };
 	}
 	else if (Play::KeyDown(VK_RIGHT))
 	{
-		player.acceleration = { playerStats.inputAcceleration, player.acceleration.y };
+		player.acceleration = { g_player.inputAcceleration, player.acceleration.y };
 	}
 	else
 	{
@@ -472,10 +658,10 @@ void HandlePlayerControls()
 	if (Play::IsLeavingDisplayArea(player, Play::HORIZONTAL))
 		player.pos.x = player.oldPos.x;
 
-	if (player.velocity.x > playerStats.maxSpeed)
-		player.velocity.x = playerStats.maxSpeed;
-	else if (player.velocity.x < -playerStats.maxSpeed)
-		player.velocity.x = -playerStats.maxSpeed;
+	if (player.velocity.x > g_player.maxSpeed)
+		player.velocity.x = g_player.maxSpeed;
+	else if (player.velocity.x < -g_player.maxSpeed)
+		player.velocity.x = -g_player.maxSpeed;
 }
 
 void HandlePlayerCollision()
