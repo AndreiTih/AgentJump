@@ -12,8 +12,6 @@ Features:
 
 **Planned...**:
 
-In order to get ready for the upcoming jam, I'll attempt to add these features by Saturday:
-
 - [x] Make the camera update more smoothly. At the moment it's a bit jarring, especially when the player bounces.
 - [x] Add a power up to the game that makes you jump higher. Allow the player to have a set amount of powerups. Add a little UI icon somewhere to indicate what power ups you currently have.
 - [ ] Add a 'jetpack' . When the player collides with it, for a set amount of time they'll be propelled upwards
