@@ -48,7 +48,7 @@ int coinValue = 5000;
 
 
 // Change on my branch
-
+// Another change on my branch
 
 
 // How many platforms to generate at the start of the game
