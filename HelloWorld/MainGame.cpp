@@ -47,6 +47,9 @@ int coinValue = 5000;
 // The jump applies a multiplier to both platformVelocityBoost and springVelocityBoost
 
 
+// Change on my branch
+
+
 
 // How many platforms to generate at the start of the game
 #define INIT_NR_OF_PLATFORMS_GENERATED 100
