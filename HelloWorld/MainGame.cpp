@@ -47,7 +47,7 @@ int coinValue = 5000;
 // The jump applies a multiplier to both platformVelocityBoost and springVelocityBoost
 
 
-// Change on my branch
+// Newest change on my branch
 
 
 
