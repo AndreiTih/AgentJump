@@ -4,7 +4,6 @@
 
 Doodle Jump clone made with Sumo Digital Academy's [playbuffer](https://github.com/sumo-digital-academy/playbuffer) framework.
 
-I had a lot of fun making this for the initial application to the Sumo Digital Academy apprenticeship!
 
 Features:
 - [x] Infinite platform generation that gets more difficult the higher up you go
