@@ -18,4 +18,5 @@ Features:
 
 
 
-[![AgentJumpGameplay](https://github.com/AndreiTih/AgentJump/assets/91728090/e5f43dc8-3da8-47bd-bd52-2dfbdd8e2670)](https://github.com/AndreiTih/AgentJump)
+[![AgentJumpGameplay](https://github.com/AndreiTih/AgentJump/assets/91728090/e5f43dc8-3da8-47bd-bd52-2dfbdd8e2670)
+](https://github.com/AndreiTih/AgentJump)
