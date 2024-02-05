@@ -17,5 +17,8 @@ Features:
 - [ ] Maybee, add some extra platforms that will break upon collision, without propelling the player forward, as a trap for the player. Make sure to add them horizontally-ish to existing platforms to avoid creating a situation where the only way to go up is a breakable platform. Main challenge for this feature would be the art for it, I'm horrible at drawing.
 
 
-https://github.com/AndreiTih/AgentJump/assets/91728090/080990b8-74a2-45ce-9d17-6a7995382b79
+
+
+
+https://github.com/AndreiTih/AgentJump/assets/91728090/e5f43dc8-3da8-47bd-bd52-2dfbdd8e2670
 
