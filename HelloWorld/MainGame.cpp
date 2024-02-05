@@ -47,8 +47,12 @@ int coinValue = 5000;
 // The jump applies a multiplier to both platformVelocityBoost and springVelocityBoost
 
 
+// Newest change on my branch
+
+
 // Change on my branch
 // Another change on my branch
+
 
 
 // How many platforms to generate at the start of the game
@@ -155,11 +159,7 @@ void StartGame(GameStateEnum initialGameState)
 	{
 		Play::DestroyGameObject(springID);
 	}
-
-	
 	GenerateNextChunk(INIT_NR_OF_PLATFORMS_GENERATED, GENERATE_MIN_X, GENERATE_MAX_X, DISPLAY_HEIGHT + 100, true);
-
-
 
 	GameObject& player = Play::GetGameObjectByType(TYPE_PLAYER);
 	player.pos = g_player.startingPos;
