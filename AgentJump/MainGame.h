@@ -7,6 +7,7 @@
 #define POWER_UP_JUMP_COLLISION_RADIUS 40.0f
 #define SPAWN_CHANCE_POWER_UP_JUMP 0.2f
 #define NR_POWERUPS 1 // Total nr of power ups in the game.
+
 struct PowerUp
 {
 	// WARING: There's this unspoken coupling between this enum and the powerUps array in the Player class
@@ -14,7 +15,8 @@ struct PowerUp
 	// when adding extra power ups, to add them into that array into the right order.
 	enum PowerUpType
 	{
-		TYPE_JUMP_BOOST = 0
+		TYPE_JUMP_BOOST = 0,
+		TYPE_JETPACK
 	};
 
 	PowerUpType type;
@@ -29,7 +31,6 @@ struct PowerUp
 	int generatePowerUpMinYDelta = 2000;
 	int generatePowerUpYRandomRange = 500;
 
-
 	// Only applies to the jump power up. In the future I'll refactor this so that there's a
 	// PowerUpJump struct that extends the PowerUp class. But I ran into some memory complications
 	// when trying to hold an array of PowerUp and introduce instances of PowerUpJump. I think
@@ -37,6 +38,12 @@ struct PowerUp
 	// to PowerUp instead, but that makes it so that I have to dynamically allocate each power up. Then I
 	// 'd have to make a destructor. I'll learn about these things another day.
 	float jump_multipliers[MAX_COUNT_POWER_UP_JUMP] = { 1.25f,1.50f,1.75f,2.0f };
+};
+
+
+struct PowerUpJetpack : PowerUp
+{
+
 };
 
 enum GameStateEnum

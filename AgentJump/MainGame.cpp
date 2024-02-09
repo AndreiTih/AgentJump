@@ -10,7 +10,7 @@
 #include "Play.h"
 #include "MainGame.h"
 
-const int DISPLAY_WIDTH = 1280;
+const int DISPLAY_WIDTH = 430;
 const int DISPLAY_HEIGHT = 720;
 const int DISPLAY_SCALE = 1;
 
@@ -26,12 +26,11 @@ const float SPRING_CHANCE = 0.1f;
 bool isCameraFollowingPlayer = true;
 
 // Min and max x coordinate values for generated platforms.
-const int GENERATE_MIN_X = 100;
-const int GENERATE_MAX_X = DISPLAY_WIDTH - 100;
+const int GENERATE_MIN_X = 50;
+const int GENERATE_MAX_X = DISPLAY_WIDTH - 50;
 
 #define INTRO_TIME_IN_SECONDS 4
 float introTimeElapsed = 0;
-
 
 
 #define INITIAL_PLATFORM_VELOCITY_BOOST -18.0f
@@ -81,18 +80,13 @@ int previousHighestPlatformYPos = 0;
 #define GRAVITY 0.2f
 
 
-
-
-
-
-
 struct Player
 {
 	float maxSpeed = 4.25f;
 	float inputAcceleration = 1.0f;
 
 	const Vector2D startingPos = { DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2 };
-	
+
 	// WARING: There's this unspoken coupling between this array and the PowerUpType enum. 
 	// It is assumed that the enum identifying the powerup also serves as an index into this array
 	// Take care when adding extra powerups to add them in the right order
@@ -101,6 +95,7 @@ struct Player
 		{ PowerUp::PowerUpType::TYPE_JUMP_BOOST,0 , MAX_COUNT_POWER_UP_JUMP, POWER_UP_JUMP_COLLISION_RADIUS, SPAWN_CHANCE_POWER_UP_JUMP, "star","star"}
 	};
 };
+
 Player g_player;
 
 
@@ -125,7 +120,7 @@ void MainGameEntry(int, char* [])
 	Play::CreateManager(DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_SCALE);
 	Play::CentreAllSpriteOrigins();
 	Play::LoadBackground("Data\\Backgrounds\\background.png");
-	Play::CreateGameObject(TYPE_PLAYER, g_player.startingPos, 50, "agent8_fall");
+	Play::CreateGameObject(TYPE_PLAYER, g_player.startingPos, 25, "agent8_fall");
 	Play::CreateGameObject(TYPE_GUI, { 0,0 }, 0, "star");
 
 	StartGame(STATE_INTRO);
@@ -249,7 +244,7 @@ void UpdateIntroTimer(float elapsedTime)
 	introTimeElapsed += elapsedTime;
 
 	Play::DrawFontText("64px", "GAME STARTS IN ... " + std::to_string((int)(INTRO_TIME_IN_SECONDS - introTimeElapsed)) + "seconds",
-		{ DISPLAY_WIDTH / 2 , DISPLAY_HEIGHT / 2 - 200 }, Play::CENTRE);
+		{ DISPLAY_WIDTH / 2 , DISPLAY_HEIGHT / 2 - 100 }, Play::CENTRE);
 
 	if (introTimeElapsed >= INTRO_TIME_IN_SECONDS)
 	{
@@ -378,7 +373,6 @@ void GeneratePlatformsAndSprings(int nrPlatforms, int minX, int maxX, int minY, 
 		Play::CreateGameObject(TYPE_PLATFORM, { g_player.startingPos.x, DISPLAY_HEIGHT + 100 }, 40, "spanner");
 		nrPlatforms = nrPlatforms - 1;
 	}
-
 	// Linearly adjust the vertical spacing between the platforms depending on how high up the 
 	// player has gotten. This makes the game more challenging the higher up the player goes.	
 	if ((minY < 0) && (minY > HIGHEST_DIFFICULTY_HEIGHT))
@@ -387,7 +381,6 @@ void GeneratePlatformsAndSprings(int nrPlatforms, int minX, int maxX, int minY, 
 		generatePlatformsMinYDelta = heightToHighestDiffHeightRatio * generatePlatformsMinYDeltaMax;
 		generatePlatformsYRandomRange = heightToHighestDiffHeightRatio * generatePlatformsYRandomRangeMax;
 	}
-
 	for (int i = 0; i < nrPlatforms; i++)
 	{
 		int platX = rand() % (maxX - minX) + minX;
@@ -398,7 +391,7 @@ void GeneratePlatformsAndSprings(int nrPlatforms, int minX, int maxX, int minY, 
 
 		if (rand() % 100 < SPRING_CHANCE * 100)
 		{
-			Play::CreateGameObject(TYPE_SPRING, { (platX - 40 + rand() % 80), platY - 52 }, 10, "spring");
+			Play::CreateGameObject(TYPE_SPRING, { (platX - 15) + rand() % 20, platY - 40}, 10, "spring");
 		}
 
 	}
@@ -434,7 +427,7 @@ void GenerateCoins(int minY, int maxY, int minX, int maxX)
 }
 
 // Generates everything that is generatable: Platforms and springs, coins, powerups
-// The 'chunk size' of what is generated is determined by the nr of platforms in the generation.
+// The 'chunk size' of what is generated is determined by the nr of platforms in the generation, not by a fixed y-size.
 void GenerateNextChunk(int nrPlatforms, int minX, int maxX, int minY, bool generateInitialPlatform)
 {
 	// TODO: Potential refactor. All 3 of these functions do very similar things.
@@ -658,8 +651,15 @@ void HandlePlayerControls()
 	}
 	Play::UpdateGameObject(player);
 
+	// Get his velocity as well. And depening on the velocity we can determine on which side to teleport the player.
+	// Positive velocity, teleport to the left side
+	// Negative velocity, teleport to the right side
 	if (Play::IsLeavingDisplayArea(player, Play::HORIZONTAL))
-		player.pos.x = player.oldPos.x;
+	{
+		player.pos.x = (player.velocity.x < 0) * DISPLAY_WIDTH;
+		//player.pos.x = player.oldPos.x;
+	}
+
 
 	if (player.velocity.x > g_player.maxSpeed)
 		player.velocity.x = g_player.maxSpeed;
